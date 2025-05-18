@@ -1,60 +1,47 @@
+import streamlit as st
+import os
 import requests
 import pandas as pd
 import plotly.graph_objects as go
-import streamlit as st
-import os
 
-# API Config
-API_BASE = "https://stock.indianapi.in"
-HEADERS = {"Authorization": f"Bearer {os.getenv('sk-live-6QGggBJGp0Evv8cM0CofP1DL6bZwnmJTm0BZOCzE')}"}
+# Load API key from Streamlit secrets
+api_key = st.secrets["INDIAN_STOCK_API_KEY"]
+headers = {"Authorization": f"Bearer {api_key}"}
+api_base = "https://stock.indianapi.in"
 
 # App Title
 st.title("ITC Stock Dashboard - 3 Months View")
 
-# Function to get 3-month historical data
 def get_itc_data():
-    endpoint = f"{API_BASE}/stock/NSE:ITC/history?interval=1d&range=3mo"
-    response = requests.get(endpoint, headers=HEADERS)
-
-    # Show status for debugging
+    endpoint = f"{api_base}/stock/NSE:ITC/history?interval=1d&range=3mo"
+    response = requests.get(endpoint, headers=headers)
     if response.status_code != 200:
         st.error(f"API Error: {response.status_code}")
-        st.text("Raw response from API:")
         st.text(response.text)
         return pd.DataFrame()
-
     try:
-        json_data = response.json()
-        prices = json_data.get("prices", [])
-
-        df = pd.DataFrame(prices)
-        if not df.empty and "date" in df.columns:
+        data = response.json().get("prices", [])
+        df = pd.DataFrame(data)
+        if not df.empty:
             df["date"] = pd.to_datetime(df["date"])
         return df
-
     except Exception as e:
-        st.error("Failed to parse API response.")
-        st.text(f"Exception: {e}")
-        st.text("Raw response:")
-        st.text(response.text)
+        st.error(f"JSON Parsing Error: {e}")
         return pd.DataFrame()
 
-# Get and show data
 df = get_itc_data()
 if not df.empty:
-    st.subheader("ITC Price Chart (Daily Candlestick)")
+    st.subheader("ITC Price Chart")
     fig = go.Figure(data=[go.Candlestick(
         x=df["date"],
         open=df["open"],
         high=df["high"],
         low=df["low"],
-        close=df["close"],
-        name="ITC"
+        close=df["close"]
     )])
-    fig.update_layout(title="ITC - NSE Candlestick Chart", xaxis_title="Date", yaxis_title="Price")
+    fig.update_layout(title="ITC - NSE Candlestick", xaxis_title="Date", yaxis_title="Price")
     st.plotly_chart(fig)
-
-    st.subheader("Recent Data Snapshot")
+    st.subheader("Recent Data")
     st.dataframe(df.tail(10))
 else:
-    st.warning("No data available to display.")
+    st.warning("No data available.")
