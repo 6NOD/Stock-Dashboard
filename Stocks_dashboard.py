@@ -6,7 +6,7 @@ import os
 
 # API Config
 API_BASE = "https://stock.indianapi.in"
-HEADERS = {"Authorization": f"Bearer {os.getenv('INDIAN_STOCK_API_KEY')}"}
+HEADERS = {"Authorization": f"Bearer {os.getenv('sk-live-6QGggBJGp0Evv8cM0CofP1DL6bZwnmJTm0BZOCzE')}"}
 
 # App Title
 st.title("ITC Stock Dashboard - 3 Months View")
