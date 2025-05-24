@@ -1,62 +1,81 @@
 import requests
-import streamlit as st
 import pandas as pd
+import plotly.graph_objects as go
+import streamlit as st
+import yfinance as yf
+from datetime import datetime
 
-# API Configuration
+# Setup
 API_BASE = "https://stock.indianapi.in"
 API_KEY = st.secrets.get("INDIAN_STOCK_API_KEY", "")
 HEADERS = {"Authorization": f"Bearer {API_KEY}"}
+TOP_NSE_SYMBOLS = ["ITC", "INFY", "SBIN", "ICICIBANK", "HDFCBANK"]
+st.title("Top NSE Stocks - 3 Month Performance (with Fallback)")
 
-# List of Top NSE Stocks
-TOP_STOCKS = ["Reliance", "TCS", "HDFC Bank", "Infosys", "ICICI Bank"]
-
-# Streamlit App Title
-st.set_page_config(page_title="Top NSE Stocks Overview", layout="wide")
-st.title("Top NSE Stocks - Financial Overview")
-
-# Function to fetch company data by name
-def get_company_data(name):
-    endpoint = f"{API_BASE}/stock?name={name}"
+# Main fetch function with fallback
+def get_stock_data(symbol):
+    endpoint = f"{API_BASE}/stock/NSE:{symbol}/history?interval=1d&range=3mo"
     try:
         response = requests.get(endpoint, headers=HEADERS)
+        st.write(f"API Status for {symbol}: {response.status_code}")  # Debug
+        st.write(response.text[:200])  # Show part of the response
+
         response.raise_for_status()
-        return response.json()
+        data = response.json().get("prices", [])
+        df = pd.DataFrame(data)
+        if not df.empty:
+            df["date"] = pd.to_datetime(df["date"])
+            df["symbol"] = symbol
+            return df
+        else:
+            raise ValueError("Empty data from IndianAPI")
     except Exception as e:
-        st.error(f"Error fetching data for {name}: {e}")
-        return None
+        st.warning(f"IndianAPI failed for {symbol}, falling back to Yahoo Finance. Error: {e}")
+        return get_stock_data_yfinance(symbol)
 
-# Display data for each stock
-for stock_name in TOP_STOCKS:
-    data = get_company_data(stock_name)
-    if data:
-        st.subheader(f"{data.get('companyName', stock_name)}")
-        current_price = data.get("currentPrice", {})
-        percent_change = data.get("percentChange", "N/A")
-        year_high = data.get("yearHigh", "N/A")
-        year_low = data.get("yearLow", "N/A")
-        industry = data.get("industry", "N/A")
-        analyst_view = data.get("analystView", {})
-        shareholding = data.get("shareholding", {})
+# Fallback function using Yahoo Finance
+def get_stock_data_yfinance(symbol):
+    try:
+        df = yf.download(f"{symbol}.NS", period="3mo", interval="1d")
+        if df.empty:
+            st.error(f"No fallback data found for {symbol}")
+            return pd.DataFrame()
+        df.reset_index(inplace=True)
+        df.rename(columns={
+            "Open": "open", "High": "high", "Low": "low", "Close": "close", "Date": "date"
+        }, inplace=True)
+        df["symbol"] = symbol
+        return df[["date", "open", "high", "low", "close", "symbol"]]
+    except Exception as e:
+        st.error(f"Yahoo Finance failed for {symbol}: {e}")
+        return pd.DataFrame()
 
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            st.metric(label="NSE Price", value=current_price.get("NSE", "N/A"), delta=f"{percent_change}%")
-        with col2:
-            st.metric(label="52 Week High", value=year_high)
-        with col3:
-            st.metric(label="52 Week Low", value=year_low)
+# Collect all stock data
+all_data = pd.DataFrame()
+for symbol in TOP_NSE_SYMBOLS:
+    df = get_stock_data(symbol)
+    if not df.empty:
+        all_data = pd.concat([all_data, df], ignore_index=True)
 
-        st.markdown(f"**Industry:** {industry}")
+# Show if we have any data
+if not all_data.empty:
+    st.subheader("Candlestick Chart")
+    selected = st.selectbox("Select a stock", TOP_NSE_SYMBOLS)
+    df_filtered = all_data[all_data.symbol == selected]
 
-        if analyst_view:
-            st.markdown("**Analyst View:**")
-            st.json(analyst_view)
+    fig = go.Figure(data=[go.Candlestick(
+        x=df_filtered["date"],
+        open=df_filtered["open"],
+        high=df_filtered["high"],
+        low=df_filtered["low"],
+        close=df_filtered["close"],
+        name=selected
+    )])
+    fig.update_layout(title=f"{selected} - 3 Month Candlestick", xaxis_title="Date", yaxis_title="Price")
+    st.plotly_chart(fig)
 
-        if shareholding:
-            st.markdown("**Shareholding Pattern:**")
-            st.json(shareholding)
-
-        st.markdown("---")
-    else:
-        st.warning(f"No data available for {stock_name}.")
+    st.subheader("Recent Data Snapshot")
+    st.dataframe(df_filtered.tail(10))
+else:
+    st.error("No valid stock data retrieved. Please check your API key or try again later.")
 
