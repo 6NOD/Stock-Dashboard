@@ -1,64 +1,62 @@
 import requests
-import pandas as pd
-import plotly.graph_objects as go
 import streamlit as st
+import pandas as pd
 
-# API Config
+# API Configuration
 API_BASE = "https://stock.indianapi.in"
 API_KEY = st.secrets.get("INDIAN_STOCK_API_KEY", "")
 HEADERS = {"Authorization": f"Bearer {API_KEY}"}
 
-# Verified NSE stock symbols that return data
-TOP_STOCKS = ["ITC", "INFY", "SBIN", "ICICIBANK", "HDFCBANK"]
+# List of Top NSE Stocks
+TOP_STOCKS = ["Reliance", "TCS", "HDFC Bank", "Infosys", "ICICI Bank"]
 
-# App Title
-st.set_page_config(page_title="Top NSE Stocks Dashboard", layout="wide")
-st.title("Top NSE Stocks - 3 Month Performance Tracker")
+# Streamlit App Title
+st.set_page_config(page_title="Top NSE Stocks Overview", layout="wide")
+st.title("Top NSE Stocks - Financial Overview")
 
-# Function to get 3-month historical data for a given stock
-def get_stock_data(symbol):
-    endpoint = f"{API_BASE}/stock/NSE:{symbol}/history?interval=1d&range=3mo"
+# Function to fetch company data by name
+def get_company_data(name):
+    endpoint = f"{API_BASE}/stock?name={name}"
     try:
         response = requests.get(endpoint, headers=HEADERS)
         response.raise_for_status()
-        data = response.json().get("prices", [])
-        df = pd.DataFrame(data)
-        if not df.empty:
-            df["date"] = pd.to_datetime(df["date"])
-            df["symbol"] = symbol
-        return df
+        return response.json()
     except Exception as e:
-        st.error(f"Error fetching data for {symbol}: {e}")
-        return pd.DataFrame()
+        st.error(f"Error fetching data for {name}: {e}")
+        return None
 
-# Fetch and combine data for all stocks
-all_data = pd.DataFrame()
-for symbol in TOP_STOCKS:
-    df = get_stock_data(symbol)
-    if not df.empty:
-        all_data = pd.concat([all_data, df])
+# Display data for each stock
+for stock_name in TOP_STOCKS:
+    data = get_company_data(stock_name)
+    if data:
+        st.subheader(f"{data.get('companyName', stock_name)}")
+        current_price = data.get("currentPrice", {})
+        percent_change = data.get("percentChange", "N/A")
+        year_high = data.get("yearHigh", "N/A")
+        year_low = data.get("yearLow", "N/A")
+        industry = data.get("industry", "N/A")
+        analyst_view = data.get("analystView", {})
+        shareholding = data.get("shareholding", {})
 
-# Display content
-if not all_data.empty:
-    selected_stock = st.selectbox("Select a Stock", TOP_STOCKS)
-    df_selected = all_data[all_data.symbol == selected_stock]
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric(label="NSE Price", value=current_price.get("NSE", "N/A"), delta=f"{percent_change}%")
+        with col2:
+            st.metric(label="52 Week High", value=year_high)
+        with col3:
+            st.metric(label="52 Week Low", value=year_low)
 
-    st.subheader(f"{selected_stock} - Candlestick Chart")
-    fig = go.Figure(data=[go.Candlestick(
-        x=df_selected["date"],
-        open=df_selected["open"],
-        high=df_selected["high"],
-        low=df_selected["low"],
-        close=df_selected["close"],
-        name=selected_stock
-    )])
-    fig.update_layout(title=f"{selected_stock} - NSE Candlestick Chart",
-                      xaxis_title="Date", yaxis_title="Price",
-                      xaxis_rangeslider_visible=False)
-    st.plotly_chart(fig, use_container_width=True)
+        st.markdown(f"**Industry:** {industry}")
 
-    st.subheader("Recent Price Data")
-    st.dataframe(df_selected.tail(10))
-else:
-    st.warning("No data available. Please check your API key or try again later.")
-    
+        if analyst_view:
+            st.markdown("**Analyst View:**")
+            st.json(analyst_view)
+
+        if shareholding:
+            st.markdown("**Shareholding Pattern:**")
+            st.json(shareholding)
+
+        st.markdown("---")
+    else:
+        st.warning(f"No data available for {stock_name}.")
+
