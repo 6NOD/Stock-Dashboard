@@ -1,6 +1,5 @@
 # Prevent secrets from being exposed
 .streamlit/
-secrets.toml
 *.env
+secrets.toml
 __pycache__/
-*.pyc
