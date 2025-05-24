@@ -1,63 +1,60 @@
-import streamlit as st
-import os
 import requests
 import pandas as pd
 import plotly.graph_objects as go
+import streamlit as st
 
-# Load API key from secrets
-api_key = st.secrets.get("INDIAN_STOCK_API_KEY")
+# API Config
+API_BASE = "https://stock.indianapi.in"
+API_KEY = st.secrets.get("INDIAN_STOCK_API_KEY", "")
+HEADERS = {"Authorization": f"Bearer {API_KEY}"}
 
-# Debug to verify API key presence
-st.sidebar.markdown("### Debug Info")
-st.sidebar.write("API Key Loaded:", bool(api_key))
-
-# Validate API key
-if not api_key:
-    st.error("API key not found. Please add it to `.streamlit/secrets.toml`")
-    st.stop()
-
-headers = {"Authorization": f"Bearer {api_key}"}
-api_base = "https://stock.indianapi.in"
+# Top 10 Stocks by Market Cap (adjust as needed)
+TOP_10_STOCKS = ["RELIANCE", "TCS", "HDFCBANK", "ICICIBANK", "INFY", "HINDUNILVR", "ITC", "KOTAKBANK", "LT", "SBIN"]
 
 # App Title
-st.title("ITC Stock Dashboard - 3 Months View")
+st.title("Top 10 NSE Stocks - 3 Month Performance Tracker")
 
-# Function to fetch ITC stock history
-def get_itc_data():
-    endpoint = f"{api_base}/stock/NSE:ITC/history?interval=1d&range=3mo"
-    response = requests.get(endpoint, headers=headers)
-
-    if response.status_code != 200:
-        st.error(f"API Error {response.status_code}")
-        st.code(response.text)
-        return pd.DataFrame()
-
+# Function to get historical data for a given stock
+def get_stock_data(symbol):
+    endpoint = f"{API_BASE}/stock/NSE:{symbol}/history?interval=1d&range=3mo"
     try:
+        response = requests.get(endpoint, headers=HEADERS)
+        response.raise_for_status()
         data = response.json().get("prices", [])
         df = pd.DataFrame(data)
-        if not df.empty and "date" in df.columns:
+        if not df.empty:
             df["date"] = pd.to_datetime(df["date"])
+            df["symbol"] = symbol
         return df
     except Exception as e:
-        st.error(f"Error parsing response: {e}")
+        st.error(f"Error fetching data for {symbol}: {e}")
         return pd.DataFrame()
 
-# Load and display data
-df = get_itc_data()
-if not df.empty:
-    st.subheader("ITC Price Chart")
+# Aggregate and display data
+all_data = pd.DataFrame()
+
+for symbol in TOP_10_STOCKS:
+    df = get_stock_data(symbol)
+    if not df.empty:
+        all_data = pd.concat([all_data, df])
+
+if not all_data.empty:
+    st.subheader("Candlestick Charts (Last 3 Months)")
+    selected_stock = st.selectbox("Select a Stock to View", TOP_10_STOCKS)
+    df_selected = all_data[all_data.symbol == selected_stock]
+
     fig = go.Figure(data=[go.Candlestick(
-        x=df["date"],
-        open=df["open"],
-        high=df["high"],
-        low=df["low"],
-        close=df["close"]
+        x=df_selected["date"],
+        open=df_selected["open"],
+        high=df_selected["high"],
+        low=df_selected["low"],
+        close=df_selected["close"],
+        name=selected_stock
     )])
-    fig.update_layout(title="ITC - NSE Candlestick", xaxis_title="Date", yaxis_title="Price")
+    fig.update_layout(title=f"{selected_stock} - NSE Candlestick Chart", xaxis_title="Date", yaxis_title="Price")
     st.plotly_chart(fig)
 
     st.subheader("Recent Data Snapshot")
-    st.dataframe(df.tail(10))
+    st.dataframe(df_selected.tail(10))
 else:
-    st.warning("No stock data available.")
-
+    st.warning("No data available for the selected stocks. Please check your API key or try again later.")
