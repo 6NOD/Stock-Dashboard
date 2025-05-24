@@ -7,7 +7,7 @@ from datetime import datetime
 
 # Setup
 API_BASE = "https://stock.indianapi.in"
-API_KEY = st.secrets.get("INDIAN_STOCK_API_KEY", "")
+API_KEY = st.secrets.get("INDIAN_STOCK_API_KEY")
 HEADERS = {"Authorization": f"Bearer {API_KEY}"}
 TOP_NSE_SYMBOLS = ["ITC", "INFY", "SBIN", "ICICIBANK", "HDFCBANK"]
 st.title("Top NSE Stocks - 3 Month Performance (with Fallback)")
