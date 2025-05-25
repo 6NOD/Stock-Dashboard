@@ -2,7 +2,7 @@ import requests
 import pandas as pd
 import plotly.graph_objs as go
 
-st.set_page_config(page_title="Stock Analysis MVP", layout="wide")
+
 
 API_KEY = st.secrets["API_KEY"] if "API_KEY" in st.secrets else "d910ad367b9345aab248fd7f4f8c038a"
 BASE_URL = "https://api.twelvedata.com"
