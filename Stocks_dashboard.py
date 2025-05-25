@@ -4,7 +4,7 @@ import pandas as pd
 import plotly.graph_objects as go
 
 # Constants
-API_KEY = "d910ad367b9345aab248fd7f4f8c038a"
+API_KEY = st.secrets["API_KEY"]
 BASE_URL = "https://api.twelvedata.com"
 
 # Top 10 US Stocks, Index Funds, ETFs
