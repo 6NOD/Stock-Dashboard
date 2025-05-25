@@ -1,46 +1,46 @@
-import yfinance as yf
-import pandas as pd
-import plotly.graph_objects as go
 import streamlit as st
+import requests 
+import pandas as pd 
+import plotly.graph_objects as go
 
-# Top Indian stocks on NSE (with .NS suffix for Yahoo Finance)
-TOP_STOCKS = ["ITC.NS", "INFY.NS", "SBIN.NS", "ICICIBANK.NS", "HDFCBANK.NS"]
+Constants
 
-st.title("Top NSE Stocks - 3 Month Performance Tracker (via Yahoo Finance)")
+API_KEY = "d910ad367b9345aab248fd7f4f8c038a" BASE_URL = "https://api.twelvedata.com"
 
-def fetch_stock_data(symbol):
-    try:
-        df = yf.download(symbol, period="3mo", interval="1d", progress=False)
-        df.reset_index(inplace=True)
-        df["symbol"] = symbol
-        return df
-    except Exception as e:
-        st.error(f"Error fetching {symbol}: {e}")
-        return pd.DataFrame()
+Stock symbols
 
-# Combine data
-all_data = pd.DataFrame()
-for symbol in TOP_STOCKS:
-    df = fetch_stock_data(symbol)
-    if not df.empty:
-        all_data = pd.concat([all_data, df])
+STOCKS = { "Reliance Industries": "RELIANCE.NS", "Tata Consultancy Services": "TCS.NS", "Infosys": "INFY.NS", "HDFC": "HDFC.NS", "Hindustan Unilever": "HINDUNILVR.NS" }
 
-if not all_data.empty:
-    stock_choice = st.selectbox("Select Stock", TOP_STOCKS)
-    df_selected = all_data[all_data.symbol == stock_choice]
+Streamlit UI
 
-    st.subheader(f"{stock_choice} - Candlestick Chart")
-    fig = go.Figure(data=[go.Candlestick(
-        x=df_selected['Date'],
-        open=df_selected['Open'],
-        high=df_selected['High'],
-        low=df_selected['Low'],
-        close=df_selected['Close']
-    )])
-    fig.update_layout(xaxis_title="Date", yaxis_title="Price")
-    st.plotly_chart(fig)
+st.set_page_config(page_title="Indian Stock Dashboard", layout="wide") st.title("Indian Stock Market Dashboard")
 
-    st.subheader("Latest Data")
-    st.dataframe(df_selected.tail(10))
+Sidebar - Select Stock
+
+ticker_name = st.sidebar.selectbox("Select a stock:", list(STOCKS.keys())) ticker = STOCKS[ticker_name]
+
+Fetch current quote
+
+def get_quote(symbol): url = f"{BASE_URL}/quote?symbol={symbol}&apikey={API_KEY}" response = requests.get(url).json() return response
+
+Fetch intraday time series
+
+def get_time_series(symbol): url = f"{BASE_URL}/time_series?symbol={symbol}&interval=5min&outputsize=30&apikey={API_KEY}" response = requests.get(url).json() if "values" in response: df = pd.DataFrame(response["values"]) df["datetime"] = pd.to_datetime(df["datetime"]) df["close"] = pd.to_numeric(df["close"], errors='coerce') df.sort_values("datetime", inplace=True) return df return None
+
+Display stock info
+
+quote = get_quote(ticker)
+
+if "code" in quote: st.error(f"Error fetching data: {quote.get('message', 'Unknown error')}") else: col1, col2, col3, col4 = st.columns(4) col1.metric("Price", f"Rs. {quote['price']}", f"{quote['percent_change']}%") col2.metric("Open", f"Rs. {quote['open']}") col3.metric("Volume", f"{quote['volume']}") col4.metric("Last Updated", quote['datetime'])
+
+# Display time series chart
+st.subheader(f"Intraday Price Chart - {ticker}")
+data = get_time_series(ticker)
+if data is not None:
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(x=data["datetime"], y=data["close"], mode='lines', name=ticker))
+    fig.update_layout(title=f"{ticker_name} - 5 min Interval", xaxis_title="Time", yaxis_title="Price (INR)", height=400)
+    st.plotly_chart(fig, use_container_width=True)
 else:
-    st.warning("No data available. Check internet or try again.")
+    st.info("No chart data available.")
+
