@@ -1,69 +1,76 @@
+import streamlit as st
 import requests
 import pandas as pd
-import plotly.graph_objs as go
+from datetime import datetime
 
+# Set Streamlit layout
+st.set_page_config(page_title="Stock Analysis Dashboard", layout="wide")
 
-
-API_KEY = st.secrets["API_KEY"] if "API_KEY" in st.secrets else "d910ad367b9345aab248fd7f4f8c038a"
+# API setup
+API_KEY = st.secrets["API_KEY"]
 BASE_URL = "https://api.twelvedata.com"
 
-st.title("Stock Analysis MVP")
+# Predefined symbols
+assets = {
+    "AAPL (Apple Inc)": "AAPL",
+    "GOOGL (Alphabet Inc)": "GOOGL",
+    "QQQ (Invesco ETF)": "QQQ",
+    "VTIAX (Intl Mutual Fund)": "VTIAX",
+    "FXAIX (Index Fund)": "FXAIX",
+    "SPDR Gold Trust": "GLD"
+}
 
-st.sidebar.header("Stock Selector")
-symbol = st.sidebar.text_input("Enter US Stock Symbol (e.g. AAPL, MSFT, TSLA):", value="AAPL").upper()
+st.title("Stock, ETF, Fund & Commodity Comparison")
+
+selected = st.multiselect("Select assets to compare:", list(assets.keys()), default=["AAPL (Apple Inc)", "QQQ (Invesco ETF)"])
 
 def fetch_quote(symbol):
     url = f"{BASE_URL}/quote?symbol={symbol}&apikey={API_KEY}"
-    return requests.get(url).json()
+    r = requests.get(url)
+    return r.json()
 
-def fetch_intraday(symbol, interval="5min", outputsize=30):
-    url = f"{BASE_URL}/time_series?symbol={symbol}&interval={interval}&outputsize={outputsize}&apikey={API_KEY}"
-    return requests.get(url).json()
+def display_asset(symbol):
+    data = fetch_quote(symbol)
 
-def fetch_financials(symbol):
-    url = f"{BASE_URL}/income_statement?symbol={symbol}&apikey={API_KEY}"
-    return requests.get(url).json()
+    if "code" in data:
+        st.error(f"{symbol}: {data.get('message', 'API Error')}")
+        return
 
-# Tab Layout
-tab1, tab2, tab3 = st.tabs(["Overview", "News", "Financials"])
+    col1, col2, col3 = st.columns(3)
+    col1.metric("Price", f"${data['price']}", f"{data['percent_change']}%")
+    col2.metric("1Y High", f"${data['fifty_two_week']['high']}")
+    col3.metric("1Y Low", f"${data['fifty_two_week']['low']}")
 
-with tab1:
-    quote = fetch_quote(symbol)
-    if "price" in quote:
-        st.subheader(f"{symbol} - Real-Time Quote")
-        col1, col2, col3 = st.columns(3)
-        col1.metric("Price", f"${quote['price']}", f"{quote['percent_change']}%")
-        col2.metric("Open", f"${quote['open']}")
-        col3.metric("Volume", quote['volume'])
+    st.markdown(f"**Exchange:** {data.get('exchange', 'N/A')}")
+    st.markdown(f"**Previous Close:** ${data.get('previous_close', 'N/A')}")
+    st.markdown(f"**Open Price:** ${data.get('open', 'N/A')}")
+    st.markdown("---")
 
-        st.subheader(f"{symbol} - Intraday Chart (5 min)")
-        chart = fetch_intraday(symbol)
-        if "values" in chart:
-            df = pd.DataFrame(chart["values"])
-            df["datetime"] = pd.to_datetime(df["datetime"])
-            df = df.sort_values("datetime")
-            fig = go.Figure()
-            fig.add_trace(go.Scatter(x=df["datetime"], y=df["close"], mode="lines", name="Price"))
-            fig.update_layout(margin=dict(l=0, r=0, t=30, b=20), height=400,
-                              xaxis_title="Time", yaxis_title="Price")
-            st.plotly_chart(fig, use_container_width=True)
-        else:
-            st.warning("Could not load intraday chart.")
+def plot_history(symbol):
+    url = f"{BASE_URL}/time_series?symbol={symbol}&interval=1day&outputsize=30&apikey={API_KEY}"
+    r = requests.get(url).json()
+    if "values" in r:
+        df = pd.DataFrame(r["values"])
+        df["datetime"] = pd.to_datetime(df["datetime"])
+        df.set_index("datetime", inplace=True)
+        df = df.sort_index()
+        st.line_chart(df["close"].astype(float), use_container_width=True)
     else:
-        st.error("Invalid stock symbol.")
+        st.warning(f"No chart data for {symbol}")
 
-with tab2:
-    st.subheader("Latest News")
-    st.info("News API integration coming soon. Consider using Finhub, Alpha Vantage, or News API.")
+# Tabbed layout
+tabs = st.tabs(["Overview", "Charts", "Fundamentals"])
 
-with tab3:
-    st.subheader("Financials Overview")
-    data = fetch_financials(symbol)
-    if "data" in data:
-        df_fin = pd.DataFrame(data["data"])
-        df_fin = df_fin.head(1).T
-        df_fin.columns = ["Most Recent Statement"]
-        st.dataframe(df_fin)
-    else:
-        st.warning("No financial data available for this symbol.")
+with tabs[0]:
+    for name in selected:
+        st.subheader(name)
+        display_asset(assets[name])
+
+with tabs[1]:
+    for name in selected:
+        st.subheader(f"{name} Price Trend")
+        plot_history(assets[name])
+
+with tabs[2]:
+    st.info("Fundamentals tab is under construction – coming soon!")
 
