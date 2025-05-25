@@ -7,13 +7,13 @@ import plotly.graph_objects as go
 API_KEY = "d910ad367b9345aab248fd7f4f8c038a"
 BASE_URL = "https://api.twelvedata.com"
 
-# Stock symbols
+# Stock symbols (BSE)
 STOCKS = {
-    "Reliance Industries": "RELIANCE.NS",
-    "Tata Consultancy Services": "TCS.NS",
-    "Infosys": "INFY.NS",
-    "HDFC": "HDFC.NS",
-    "Hindustan Unilever": "HINDUNILVR.NS"
+    "Reliance Industries": "RELIANCE.BSE",
+    "Tata Consultancy Services": "TCS.BSE",
+    "Infosys": "INFY.BSE",
+    "HDFC": "HDFC.BSE",
+    "Hindustan Unilever": "HINDUNILVR.BSE"
 }
 
 # Streamlit UI
