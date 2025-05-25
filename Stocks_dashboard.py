@@ -3,14 +3,14 @@ import requests
 import pandas as pd
 from datetime import datetime
 
-# Set Streamlit layout
+# Set layout
 st.set_page_config(page_title="Stock Analysis Dashboard", layout="wide")
 
 # API setup
 API_KEY = st.secrets["API_KEY"]
 BASE_URL = "https://api.twelvedata.com"
 
-# Predefined symbols
+# Predefined assets
 assets = {
     "AAPL (Apple Inc)": "AAPL",
     "GOOGL (Alphabet Inc)": "GOOGL",
@@ -37,9 +37,9 @@ def display_asset(symbol):
         return
 
     col1, col2, col3 = st.columns(3)
-    col1.metric("Price", f"${data['price']}", f"{data['percent_change']}%")
-    col2.metric("1Y High", f"${data['fifty_two_week']['high']}")
-    col3.metric("1Y Low", f"${data['fifty_two_week']['low']}")
+    col1.metric("Price", f"${data.get('price', 'N/A')}", f"{data.get('percent_change', '0')}%")
+    col2.metric("1Y High", f"${data.get('fifty_two_week', {}).get('high', 'N/A')}")
+    col3.metric("1Y Low", f"${data.get('fifty_two_week', {}).get('low', 'N/A')}")
 
     st.markdown(f"**Exchange:** {data.get('exchange', 'N/A')}")
     st.markdown(f"**Previous Close:** ${data.get('previous_close', 'N/A')}")
