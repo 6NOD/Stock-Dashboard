@@ -55,6 +55,19 @@ CATEGORY_MAP = {
 
 # Streamlit UI
 st.set_page_config(page_title="US Market Dashboard", layout="wide")
+st.markdown("""
+    <style>
+        .metric-label {
+            font-size: 16px;
+            color: #6c757d;
+        }
+        .metric-value {
+            font-size: 24px;
+            font-weight: bold;
+        }
+    </style>
+""", unsafe_allow_html=True)
+
 st.title("US Stock Market Dashboard")
 
 # Sidebar - Select Category and Ticker
@@ -96,9 +109,14 @@ quote = get_quote(ticker)
 required_fields = ["price", "percent_change", "open", "volume", "datetime"]
 
 if any(field not in quote for field in required_fields):
-    st.error("Some data fields are missing in the API response. Here's the response:")
-    st.json(quote)
+    st.error("Some data fields are missing in the API response.")
+    st.markdown("""
+    <div style='padding: 10px; background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; border-radius: 5px;'>
+        <strong>Error:</strong> Data fields are incomplete. Please try another stock or try again later.
+    </div>
+    """, unsafe_allow_html=True)
 else:
+    st.subheader(f"Overview - {ticker_name} ({ticker})")
     col1, col2, col3, col4 = st.columns(4)
     col1.metric("Price", f"$ {quote['price']}", f"{quote['percent_change']}%")
     col2.metric("Open", f"$ {quote['open']}")
