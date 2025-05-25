@@ -7,22 +7,60 @@ import plotly.graph_objects as go
 API_KEY = "d910ad367b9345aab248fd7f4f8c038a"
 BASE_URL = "https://api.twelvedata.com"
 
-# Stock symbols (BSE)
-STOCKS = {
-    "Reliance Industries": "RELIANCE.BSE",
-    "Tata Consultancy Services": "TCS.BSE",
-    "Infosys": "INFY.BSE",
-    "HDFC": "HDFC.BSE",
-    "Hindustan Unilever": "HINDUNILVR.BSE"
+# Top 10 US Stocks, Index Funds, ETFs
+TOP_US_STOCKS = {
+    "Apple": "AAPL",
+    "Microsoft": "MSFT",
+    "Amazon": "AMZN",
+    "Alphabet (Google)": "GOOGL",
+    "Meta (Facebook)": "META",
+    "NVIDIA": "NVDA",
+    "Tesla": "TSLA",
+    "Berkshire Hathaway": "BRK.B",
+    "Johnson & Johnson": "JNJ",
+    "Visa": "V"
+}
+
+TOP_INDEX_FUNDS = {
+    "S&P 500 ETF (SPY)": "SPY",
+    "Vanguard 500 Index Fund (VOO)": "VOO",
+    "iShares Core S&P 500 (IVV)": "IVV",
+    "Schwab S&P 500 Index (SWPPX)": "SWPPX",
+    "Fidelity 500 Index Fund (FXAIX)": "FXAIX",
+    "SPDR Dow Jones Industrial Average (DIA)": "DIA",
+    "Vanguard Total Stock Market (VTI)": "VTI",
+    "iShares Russell 2000 ETF (IWM)": "IWM",
+    "Fidelity ZERO Large Cap Index (FNILX)": "FNILX",
+    "iShares MSCI EAFE ETF (EFA)": "EFA"
+}
+
+TOP_ETFS = {
+    "Invesco QQQ Trust (QQQ)": "QQQ",
+    "ARK Innovation ETF (ARKK)": "ARKK",
+    "SPDR S&P Biotech ETF (XBI)": "XBI",
+    "iShares MSCI Emerging Markets ETF (EEM)": "EEM",
+    "Vanguard Real Estate ETF (VNQ)": "VNQ",
+    "iShares Silver Trust (SLV)": "SLV",
+    "SPDR Gold Shares (GLD)": "GLD",
+    "Vanguard Dividend Appreciation ETF (VIG)": "VIG",
+    "iShares U.S. Technology ETF (IYW)": "IYW",
+    "Vanguard Growth ETF (VUG)": "VUG"
+}
+
+CATEGORY_MAP = {
+    "Top 10 US Stocks": TOP_US_STOCKS,
+    "Top 10 Index Funds": TOP_INDEX_FUNDS,
+    "Top 10 ETFs": TOP_ETFS
 }
 
 # Streamlit UI
-st.set_page_config(page_title="Indian Stock Dashboard", layout="wide")
-st.title("Indian Stock Market Dashboard")
+st.set_page_config(page_title="US Market Dashboard", layout="wide")
+st.title("US Stock Market Dashboard")
 
-# Sidebar - Select Stock
-ticker_name = st.sidebar.selectbox("Select a stock:", list(STOCKS.keys()))
-ticker = STOCKS[ticker_name]
+# Sidebar - Select Category and Ticker
+category = st.sidebar.radio("Choose a category:", list(CATEGORY_MAP.keys()))
+ticker_name = st.sidebar.selectbox("Select a security:", list(CATEGORY_MAP[category].keys()))
+ticker = CATEGORY_MAP[category][ticker_name]
 
 # Fetch current quote
 def get_quote(symbol):
@@ -49,8 +87,8 @@ if "code" in quote:
     st.error(f"Error fetching data: {quote.get('message', 'Unknown error')}")
 else:
     col1, col2, col3, col4 = st.columns(4)
-    col1.metric("Price", f"Rs. {quote['price']}", f"{quote['percent_change']}%")
-    col2.metric("Open", f"Rs. {quote['open']}")
+    col1.metric("Price", f"$ {quote['price']}", f"{quote['percent_change']}%")
+    col2.metric("Open", f"$ {quote['open']}")
     col3.metric("Volume", f"{quote['volume']}")
     col4.metric("Last Updated", quote['datetime'])
 
@@ -60,7 +98,7 @@ else:
     if data is not None:
         fig = go.Figure()
         fig.add_trace(go.Scatter(x=data["datetime"], y=data["close"], mode='lines', name=ticker))
-        fig.update_layout(title=f"{ticker_name} - 5 min Interval", xaxis_title="Time", yaxis_title="Price (INR)", height=400)
+        fig.update_layout(title=f"{ticker_name} - 5 min Interval", xaxis_title="Time", yaxis_title="Price (USD)", height=400)
         st.plotly_chart(fig, use_container_width=True)
     else:
         st.info("No chart data available.")
