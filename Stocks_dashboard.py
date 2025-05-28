@@ -73,4 +73,4 @@ with tabs[1]:
 
 with tabs[2]:
     st.info("Fundamentals tab is under construction – coming soon!")
-
+    
